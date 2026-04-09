@@ -1,0 +1,73 @@
+# ========================================
+# Prometheus Configuration
+# ========================================
+#
+# This configuration tells Prometheus where to scrape metrics from.
+#
+# Prometheus works on a PULL model:
+#   1. Prometheus periodically HTTP GETs /metrics from your services
+#   2. Your services expose metrics in Prometheus text format
+#   3. Prometheus stores the data as time-series
+#   4. You query the data with PromQL
+#
+# Key sections:
+#   global:          Default settings for all jobs
+#   scrape_configs:  List of targets to scrape
+
+global:
+  # How often to scrape targets (default: 1m)
+  # 15s is good for development; use 30s-60s in production
+  scrape_interval: 15s
+
+  # How often to evaluate alerting rules
+  evaluation_interval: 15s
+
+# ========================================
+# Scrape Configurations
+# ========================================
+scrape_configs:
+
+  # Prometheus scrapes itself for monitoring
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # API Service metrics
+  - job_name: "api-service"
+    # Override global scrape interval for this job
+    scrape_interval: 10s
+    static_configs:
+      - targets: ["api:8080"]
+        labels:
+          # Extra labels added to all metrics from this target
+          service: "api"
+          environment: "docker"
+
+  # Processor Service metrics
+  - job_name: "processor-service"
+    scrape_interval: 10s
+    static_configs:
+      - targets: ["processor:8081"]
+        labels:
+          service: "processor"
+          environment: "docker"
+
+  # ========================================
+  # Examples of other scrape configurations
+  # ========================================
+
+  # Service discovery (Kubernetes)
+  # - job_name: "kubernetes-pods"
+  #   kubernetes_sd_configs:
+  #     - role: pod
+  #   relabel_configs:
+  #     - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+  #       action: keep
+  #       regex: true
+
+  # File-based service discovery
+  # - job_name: "file-discovery"
+  #   file_sd_configs:
+  #     - files:
+  #         - "/etc/prometheus/targets/*.json"
+  #       refresh_interval: 30s

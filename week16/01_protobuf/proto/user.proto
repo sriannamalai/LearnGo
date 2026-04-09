@@ -1,0 +1,119 @@
+// ========================================
+// Protocol Buffers Definition: User Service
+// ========================================
+//
+// Protocol Buffers (protobuf) is Google's language-neutral, platform-neutral
+// mechanism for serializing structured data. Think of it as a more efficient
+// alternative to JSON or XML.
+//
+// To compile this file, you need the protoc compiler and Go plugins:
+//
+//   # Install protoc compiler (macOS)
+//   brew install protobuf
+//
+//   # Install Go protobuf plugins
+//   go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+//   go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+//
+//   # Generate Go code from this .proto file
+//   protoc --go_out=. --go_opt=paths=source_relative \
+//          --go-grpc_out=. --go-grpc_opt=paths=source_relative \
+//          proto/user.proto
+//
+// This generates two files:
+//   - user.pb.go       — message types (structs, serialization)
+//   - user_grpc.pb.go  — gRPC service interface and client
+
+// Every .proto file starts with a syntax declaration.
+// "proto3" is the current version — simpler than proto2.
+syntax = "proto3";
+
+// The Go package path for generated code.
+// This tells protoc-gen-go where to place the generated files.
+option go_package = "github.com/sri/learngo/week16/01_protobuf/proto";
+
+// package defines a namespace to prevent naming conflicts
+// between different .proto files.
+package user;
+
+// ========================================
+// Messages — Define your data structures
+// ========================================
+
+// A message is like a Go struct. Each field has:
+//   - A type (string, int32, bool, etc.)
+//   - A name
+//   - A unique field number (used in binary encoding, NEVER reuse!)
+
+// User represents a user in our system.
+message User {
+  string id = 1;           // Unique identifier
+  string name = 2;         // Full name
+  string email = 3;        // Email address
+  int32 age = 4;           // Age in years
+  UserRole role = 5;       // Role enum (see below)
+  repeated string tags = 6; // repeated = slice/list in Go
+}
+
+// Enums let you define a fixed set of values.
+// The first value MUST be 0 (the default).
+enum UserRole {
+  USER_ROLE_UNSPECIFIED = 0;  // Default/unknown
+  USER_ROLE_ADMIN = 1;        // Administrator
+  USER_ROLE_MEMBER = 2;       // Regular member
+  USER_ROLE_GUEST = 3;        // Guest user
+}
+
+// ========================================
+// Request and Response Messages
+// ========================================
+
+// Convention: each RPC method gets its own Request/Response pair.
+// This makes it easy to add fields later without breaking changes.
+
+message CreateUserRequest {
+  string name = 1;
+  string email = 2;
+  int32 age = 3;
+  UserRole role = 4;
+}
+
+message CreateUserResponse {
+  User user = 1;  // Nested message — the created user
+}
+
+message GetUserRequest {
+  string id = 1;  // ID of the user to retrieve
+}
+
+message GetUserResponse {
+  User user = 1;
+}
+
+message ListUsersRequest {
+  int32 page_size = 1;    // How many users per page
+  string page_token = 2;  // Token for pagination
+}
+
+message ListUsersResponse {
+  repeated User users = 1;       // List of users
+  string next_page_token = 2;    // Token for next page (empty = last page)
+}
+
+// ========================================
+// Service Definition — The RPC Interface
+// ========================================
+
+// A service defines the RPC methods that clients can call.
+// Each rpc has a request message and a response message.
+
+service UserService {
+  // Unary RPC — one request, one response (most common)
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+
+  // Server streaming RPC — one request, stream of responses
+  // The "stream" keyword before the response means the server
+  // sends multiple responses for a single request.
+  rpc ListUsers(ListUsersRequest) returns (stream GetUserResponse);
+}

@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Dashboard</title>
+    <!--
+    ========================================
+    Week 21 — Lesson 3: Dashboard Frontend
+    ========================================
+    System stats dashboard built with vanilla HTML/CSS/JS.
+    Calls Go backend methods to get real system data.
+    Auto-refreshes every 3 seconds.
+
+    No external dependencies — CSS charts and progress bars
+    are built with standard HTML elements.
+    -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>System Dashboard</h1>
+        <div class="header-info">
+            <span id="hostname">---</span>
+            <span class="separator">|</span>
+            <span id="osInfo">---</span>
+            <span class="separator">|</span>
+            <span id="uptime">Uptime: ---</span>
+            <span class="separator">|</span>
+            <span id="refreshStatus">Auto-refresh: ON</span>
+        </div>
+    </header>
+
+    <main class="dashboard">
+        <!-- Row 1: Overview Cards -->
+        <section class="card-row">
+            <div class="card stat-card">
+                <div class="card-icon">&#x1F4BB;</div>
+                <div class="card-body">
+                    <div class="stat-value" id="cpuCount">-</div>
+                    <div class="stat-label">CPU Cores</div>
+                </div>
+            </div>
+            <div class="card stat-card">
+                <div class="card-icon">&#x1F9E0;</div>
+                <div class="card-body">
+                    <div class="stat-value" id="memAlloc">-</div>
+                    <div class="stat-label">Memory Allocated</div>
+                </div>
+            </div>
+            <div class="card stat-card">
+                <div class="card-icon">&#x2699;</div>
+                <div class="card-body">
+                    <div class="stat-value" id="goroutines">-</div>
+                    <div class="stat-label">Goroutines</div>
+                </div>
+            </div>
+            <div class="card stat-card">
+                <div class="card-icon">&#x1F4C1;</div>
+                <div class="card-body">
+                    <div class="stat-value" id="processCount">-</div>
+                    <div class="stat-label">Processes</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Row 2: Memory and CPU -->
+        <section class="card-row two-col">
+            <div class="card">
+                <h2>Memory Usage (Go Runtime)</h2>
+                <div class="progress-section">
+                    <div class="progress-header">
+                        <span>Allocated / System</span>
+                        <span id="memPct">0%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="memBar" style="width: 0%;"></div>
+                    </div>
+                </div>
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <span class="detail-label">Allocated</span>
+                        <span class="detail-value" id="memAllocDetail">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Total Allocated</span>
+                        <span class="detail-value" id="memTotalAlloc">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">System Memory</span>
+                        <span class="detail-value" id="memSys">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">GC Cycles</span>
+                        <span class="detail-value" id="memGC">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>CPU Information</h2>
+                <div class="progress-section">
+                    <div class="progress-header">
+                        <span>Load Estimate</span>
+                        <span id="cpuPct">0%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill cpu-fill" id="cpuBar" style="width: 0%;"></div>
+                    </div>
+                </div>
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <span class="detail-label">CPU Cores</span>
+                        <span class="detail-value" id="cpuCoresDetail">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Architecture</span>
+                        <span class="detail-value" id="cpuArch">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Go Version</span>
+                        <span class="detail-value" id="goVersion">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Goroutines</span>
+                        <span class="detail-value" id="goroutinesDetail">-</span>
+                    </div>
+                </div>
+                <!-- Simple bar chart for CPU history -->
+                <h3 style="margin-top: 15px; color: #8b949e; font-size: 0.85rem;">Load History</h3>
+                <div class="bar-chart" id="cpuChart"></div>
+            </div>
+        </section>
+
+        <!-- Row 3: Disk and Network -->
+        <section class="card-row two-col">
+            <div class="card">
+                <h2>Disk Usage</h2>
+                <div id="diskList">
+                    <p class="placeholder">Loading disk information...</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Network</h2>
+                <div class="detail-grid" id="networkDetails">
+                    <div class="detail-item">
+                        <span class="detail-label">Hostname</span>
+                        <span class="detail-value" id="netHostname">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Established</span>
+                        <span class="detail-value" id="netEstablished">-</span>
+                    </div>
+                </div>
+                <h3 style="margin-top: 15px; color: #8b949e; font-size: 0.85rem;">Interfaces</h3>
+                <div id="interfaceList" class="tag-list">
+                    <span class="placeholder">Loading...</span>
+                </div>
+                <h3 style="margin-top: 15px; color: #8b949e; font-size: 0.85rem;">DNS Servers</h3>
+                <div id="dnsList" class="tag-list">
+                    <span class="placeholder">Loading...</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Row 4: Environment -->
+        <section class="card-row">
+            <div class="card full-width">
+                <h2>Environment</h2>
+                <div class="env-grid" id="envGrid">
+                    <p class="placeholder">Loading environment info...</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <span>Built with Go + Wails</span>
+        <span id="lastUpdate">Last update: ---</span>
+    </footer>
+
+    <script>
+        // ========================================
+        // Dashboard Update Functions
+        // ========================================
+
+        let refreshInterval = null;
+
+        // Update system overview cards
+        async function updateOverview() {
+            try {
+                const info = await window.go.main.DashboardApp.GetSystemOverview();
+                document.getElementById("hostname").textContent = info.hostname;
+                document.getElementById("osInfo").textContent = info.os + " " + info.arch;
+                document.getElementById("uptime").textContent = "Uptime: " + info.uptime;
+                document.getElementById("cpuCount").textContent = info.numCPU;
+                document.getElementById("goroutines").textContent = info.numGoroutine;
+            } catch (err) {
+                console.error("Failed to update overview:", err);
+            }
+        }
+
+        // Update memory statistics
+        async function updateMemory() {
+            try {
+                const mem = await window.go.main.DashboardApp.GetMemoryStats();
+                document.getElementById("memAlloc").textContent = mem.alloc;
+                document.getElementById("memPct").textContent = mem.usedPct + "%";
+                document.getElementById("memBar").style.width = mem.usedPct + "%";
+                document.getElementById("memAllocDetail").textContent = mem.alloc;
+                document.getElementById("memTotalAlloc").textContent = mem.totalAlloc;
+                document.getElementById("memSys").textContent = mem.sys;
+                document.getElementById("memGC").textContent = mem.numGC;
+
+                // Color the bar based on usage
+                const bar = document.getElementById("memBar");
+                if (mem.usedPct > 80) {
+                    bar.className = "progress-fill danger";
+                } else if (mem.usedPct > 60) {
+                    bar.className = "progress-fill warning";
+                } else {
+                    bar.className = "progress-fill";
+                }
+            } catch (err) {
+                console.error("Failed to update memory:", err);
+            }
+        }
+
+        // Update CPU information
+        async function updateCPU() {
+            try {
+                const cpu = await window.go.main.DashboardApp.GetCPUSnapshot();
+                const overview = await window.go.main.DashboardApp.GetSystemOverview();
+
+                var pct = Math.round(cpu.usageEstimate);
+                document.getElementById("cpuPct").textContent = pct + "%";
+                document.getElementById("cpuBar").style.width = pct + "%";
+                document.getElementById("cpuCoresDetail").textContent = cpu.numCPU;
+                document.getElementById("cpuArch").textContent = overview.arch;
+                document.getElementById("goVersion").textContent = overview.goVersion;
+                document.getElementById("goroutinesDetail").textContent = cpu.goroutines;
+
+                // Update history chart
+                updateCPUChart(cpu);
+            } catch (err) {
+                console.error("Failed to update CPU:", err);
+            }
+        }
+
+        // CPU history buffer for the bar chart
+        var cpuHistory = [];
+
+        function updateCPUChart(snapshot) {
+            cpuHistory.push(snapshot);
+            if (cpuHistory.length > 15) {
+                cpuHistory.shift();
+            }
+
+            var chart = document.getElementById("cpuChart");
+            while (chart.firstChild) {
+                chart.removeChild(chart.firstChild);
+            }
+
+            cpuHistory.forEach(function(point) {
+                var bar = document.createElement("div");
+                bar.className = "chart-bar";
+                var height = Math.max(2, point.usageEstimate);
+                bar.style.height = height + "%";
+                bar.title = point.time + ": " + Math.round(point.usageEstimate) + "%";
+                chart.appendChild(bar);
+            });
+        }
+
+        // Update disk usage
+        async function updateDisk() {
+            try {
+                var disks = await window.go.main.DashboardApp.GetDiskUsage();
+                var container = document.getElementById("diskList");
+                while (container.firstChild) {
+                    container.removeChild(container.firstChild);
+                }
+
+                disks.forEach(function(disk) {
+                    var item = document.createElement("div");
+                    item.className = "disk-item";
+
+                    var header = document.createElement("div");
+                    header.className = "disk-header";
+
+                    var mount = document.createElement("span");
+                    mount.className = "disk-mount";
+                    mount.textContent = disk.mount;
+
+                    var usage = document.createElement("span");
+                    usage.className = "disk-usage";
+                    usage.textContent = disk.used + " / " + disk.total;
+
+                    header.appendChild(mount);
+                    header.appendChild(usage);
+
+                    var progressBar = document.createElement("div");
+                    progressBar.className = "progress-bar";
+
+                    var fill = document.createElement("div");
+                    var pct = parseInt(disk.usedPercent) || 0;
+                    fill.className = "progress-fill";
+                    if (pct > 90) {
+                        fill.className += " danger";
+                    } else if (pct > 75) {
+                        fill.className += " warning";
+                    }
+                    fill.style.width = pct + "%";
+
+                    progressBar.appendChild(fill);
+
+                    item.appendChild(header);
+                    item.appendChild(progressBar);
+                    container.appendChild(item);
+                });
+            } catch (err) {
+                console.error("Failed to update disk:", err);
+            }
+        }
+
+        // Update network info
+        async function updateNetwork() {
+            try {
+                var net = await window.go.main.DashboardApp.GetNetworkInfo();
+                document.getElementById("netHostname").textContent = net.hostname;
+
+                if (net.connections && net.connections.established) {
+                    document.getElementById("netEstablished").textContent = net.connections.established;
+                }
+
+                // Render interfaces as tags
+                var ifaceList = document.getElementById("interfaceList");
+                while (ifaceList.firstChild) {
+                    ifaceList.removeChild(ifaceList.firstChild);
+                }
+                if (net.interfaces) {
+                    net.interfaces.forEach(function(iface) {
+                        var tag = document.createElement("span");
+                        tag.className = "tag";
+                        tag.textContent = iface;
+                        ifaceList.appendChild(tag);
+                    });
+                }
+
+                // Render DNS servers
+                var dnsList = document.getElementById("dnsList");
+                while (dnsList.firstChild) {
+                    dnsList.removeChild(dnsList.firstChild);
+                }
+                if (net.dnsServers && net.dnsServers.length > 0) {
+                    net.dnsServers.forEach(function(dns) {
+                        var tag = document.createElement("span");
+                        tag.className = "tag";
+                        tag.textContent = dns;
+                        dnsList.appendChild(tag);
+                    });
+                } else {
+                    var none = document.createElement("span");
+                    none.className = "placeholder";
+                    none.textContent = "None detected";
+                    dnsList.appendChild(none);
+                }
+            } catch (err) {
+                console.error("Failed to update network:", err);
+            }
+        }
+
+        // Update process info
+        async function updateProcesses() {
+            try {
+                var procs = await window.go.main.DashboardApp.GetProcessInfo();
+                document.getElementById("processCount").textContent = procs.total;
+            } catch (err) {
+                console.error("Failed to update processes:", err);
+            }
+        }
+
+        // Update environment info
+        async function updateEnvironment() {
+            try {
+                var env = await window.go.main.DashboardApp.GetEnvironmentInfo();
+                var grid = document.getElementById("envGrid");
+                while (grid.firstChild) {
+                    grid.removeChild(grid.firstChild);
+                }
+
+                var items = [
+                    ["User", env.user],
+                    ["Home", env.home],
+                    ["Shell", env.shell],
+                    ["GOROOT", env.goRoot],
+                    ["GOPATH", env.goPath || "(default)"],
+                    ["Temp Dir", env.tempDir]
+                ];
+
+                items.forEach(function(pair) {
+                    var item = document.createElement("div");
+                    item.className = "env-item";
+
+                    var label = document.createElement("span");
+                    label.className = "env-label";
+                    label.textContent = pair[0];
+
+                    var value = document.createElement("span");
+                    value.className = "env-value";
+                    value.textContent = pair[1];
+
+                    item.appendChild(label);
+                    item.appendChild(value);
+                    grid.appendChild(item);
+                });
+            } catch (err) {
+                console.error("Failed to update environment:", err);
+            }
+        }
+
+        // ========================================
+        // Refresh All
+        // ========================================
+
+        async function refreshAll() {
+            await Promise.all([
+                updateOverview(),
+                updateMemory(),
+                updateCPU(),
+                updateProcesses()
+            ]);
+
+            document.getElementById("lastUpdate").textContent =
+                "Last update: " + new Date().toLocaleTimeString();
+        }
+
+        // ========================================
+        // Initialize
+        // ========================================
+
+        document.addEventListener("DOMContentLoaded", function() {
+            // Initial full load
+            refreshAll();
+            updateDisk();
+            updateNetwork();
+            updateEnvironment();
+
+            // Auto-refresh fast-changing stats every 3 seconds
+            refreshInterval = setInterval(refreshAll, 3000);
+
+            // Refresh slow-changing stats every 30 seconds
+            setInterval(function() {
+                updateDisk();
+                updateNetwork();
+            }, 30000);
+        });
+
+        // Listen for events from Go backend (for real-time updates)
+        // In a real Wails app:
+        // window.runtime.EventsOn("stats:memory", function(mem) {
+        //     // Update memory display directly from event data
+        // });
+        // window.runtime.EventsOn("stats:cpu", function(cpu) {
+        //     // Update CPU display directly from event data
+        // });
+    </script>
+</body>
+</html>

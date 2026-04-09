@@ -1,0 +1,31 @@
+{
+  "app_name": "MyGoApp",
+  "version": "1.2.3",
+  "server": {
+    "host": "localhost",
+    "port": 8080,
+    "read_timeout": 30,
+    "write_timeout": 30
+  },
+  "database": {
+    "host": "localhost",
+    "port": 5432,
+    "name": "myapp_db",
+    "user": "admin",
+    "max_connections": 25
+  },
+  "logging": {
+    "level": "info",
+    "file": "/var/log/myapp.log",
+    "max_size_mb": 100
+  },
+  "features": {
+    "enable_cache": true,
+    "enable_metrics": true,
+    "enable_notifications": false
+  },
+  "allowed_origins": [
+    "https://example.com",
+    "https://app.example.com"
+  ]
+}

@@ -1,0 +1,41 @@
+# ========================================
+# Week 23, Lesson 2: Example Configuration
+# ========================================
+# This YAML config file demonstrates Viper's config file support.
+# Viper reads this file and merges it with defaults and env vars.
+#
+# Priority (highest to lowest):
+#   1. viper.Set() calls
+#   2. Flags (when bound to Cobra)
+#   3. Environment variables (APP_* prefix)
+#   4. This config file
+#   5. Defaults from viper.SetDefault()
+# ========================================
+
+app:
+  name: "LearnGo CLI"
+  port: 8080
+  environment: "development"
+  debug: true
+
+database:
+  host: "localhost"
+  port: 5432
+  name: "learngo_dev"
+  user: "postgres"
+  password: "secret"
+  ssl_mode: "disable"
+  pool:
+    max_open: 25
+    max_idle: 10
+    max_lifetime: "5m"
+
+logging:
+  level: "debug"
+  format: "json"
+  output: "stdout"
+
+features:
+  enable_cache: true
+  enable_metrics: true
+  enable_rate_limit: false

@@ -1,0 +1,234 @@
+# ========================================
+# Kubernetes Deployment Manifests
+# ========================================
+#
+# Kubernetes (k8s) is the industry-standard container orchestrator.
+# These manifests define HOW to run our services on Kubernetes.
+#
+# Key Kubernetes concepts:
+#   - Pod:        Smallest deployable unit (one or more containers)
+#   - Deployment: Manages Pod replicas, rolling updates, rollbacks
+#   - Service:    Stable network endpoint for accessing Pods
+#   - Namespace:  Logical isolation (like folders for resources)
+#
+# To apply these manifests:
+#   kubectl apply -f deployment.yaml
+#   kubectl apply -f service.yaml
+#
+# To check status:
+#   kubectl get deployments
+#   kubectl get pods
+#   kubectl get services
+#   kubectl logs -f deployment/api-gateway
+#
+# Prerequisites:
+#   - A Kubernetes cluster (minikube, kind, Docker Desktop, or cloud)
+#   - kubectl CLI installed
+#   - Container images pushed to a registry
+
+# ========================================
+# API Gateway Deployment
+# ========================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  # Name of this deployment — used in kubectl commands
+  name: api-gateway
+  # Labels help organize and select resources
+  labels:
+    app: api-gateway
+    tier: frontend
+    version: v1
+spec:
+  # Number of Pod replicas — Kubernetes keeps this many running
+  replicas: 2
+
+  # Selector — tells the Deployment which Pods it manages
+  # Must match the Pod template labels below
+  selector:
+    matchLabels:
+      app: api-gateway
+
+  # Strategy for rolling updates
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      # During updates, allow 1 extra Pod above the desired count
+      maxSurge: 1
+      # During updates, at least 1 Pod must always be available
+      maxUnavailable: 0
+
+  # Pod template — defines what each Pod looks like
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+        tier: frontend
+        version: v1
+    spec:
+      # Containers in this Pod
+      containers:
+        - name: api-gateway
+          # Image from a container registry
+          # In production, use a specific tag (never "latest"!)
+          image: myregistry/api-gateway:1.0.0
+          # Pull policy:
+          #   Always: always pull (good for "latest" tag)
+          #   IfNotPresent: use cached if available (good for versioned tags)
+          imagePullPolicy: IfNotPresent
+
+          # Container port
+          ports:
+            - containerPort: 8080
+              name: http
+              protocol: TCP
+
+          # Environment variables
+          env:
+            - name: PORT
+              value: "8080"
+            - name: ENVIRONMENT
+              value: "kubernetes"
+            # Reference the worker service by its Kubernetes DNS name
+            - name: WORKER_URL
+              value: "http://worker-service:8081"
+            # You can also reference ConfigMaps and Secrets:
+            # - name: DATABASE_URL
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: app-secrets
+            #       key: database-url
+
+          # Resource requests and limits
+          # Requests: minimum guaranteed resources
+          # Limits: maximum allowed resources
+          resources:
+            requests:
+              cpu: 100m        # 100 millicores = 0.1 CPU
+              memory: 64Mi     # 64 MiB
+            limits:
+              cpu: 500m        # 500 millicores = 0.5 CPU
+              memory: 128Mi    # 128 MiB
+
+          # ========================================
+          # Probes — how Kubernetes monitors your app
+          # ========================================
+
+          # Liveness probe: "Is the process alive?"
+          # If this fails, Kubernetes RESTARTS the Pod.
+          # Use for: deadlock detection, hung processes
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            # Wait 10s before first check (let the app start)
+            initialDelaySeconds: 10
+            # Check every 15 seconds
+            periodSeconds: 15
+            # Wait up to 3 seconds for a response
+            timeoutSeconds: 3
+            # Fail after 3 consecutive failures
+            failureThreshold: 3
+
+          # Readiness probe: "Is the app ready for traffic?"
+          # If this fails, Kubernetes REMOVES the Pod from the Service.
+          # (Traffic stops, but the Pod is NOT restarted.)
+          # Use for: database connections, cache warming
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 2
+
+          # Startup probe (optional): "Has the app started?"
+          # Disables liveness/readiness until this succeeds.
+          # Use for: slow-starting applications
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            # Check every 5s, fail after 12 attempts = 60s max startup
+            periodSeconds: 5
+            failureThreshold: 12
+
+      # Graceful shutdown: give the app time to finish in-flight requests
+      # When Kubernetes sends SIGTERM, it waits this long before SIGKILL
+      terminationGracePeriodSeconds: 30
+
+---
+# ========================================
+# Worker Deployment
+# ========================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  labels:
+    app: worker
+    tier: backend
+    version: v1
+spec:
+  # More replicas for the worker to handle higher load
+  replicas: 3
+
+  selector:
+    matchLabels:
+      app: worker
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1  # Workers can tolerate brief unavailability
+
+  template:
+    metadata:
+      labels:
+        app: worker
+        tier: backend
+        version: v1
+    spec:
+      containers:
+        - name: worker
+          image: myregistry/worker:1.0.0
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - containerPort: 8081
+              name: http
+
+          env:
+            - name: PORT
+              value: "8081"
+            - name: ENVIRONMENT
+              value: "kubernetes"
+
+          # Workers get more CPU for processing
+          resources:
+            requests:
+              cpu: 200m
+              memory: 128Mi
+            limits:
+              cpu: "1"         # 1 full CPU
+              memory: 256Mi
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8081
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 2
+
+      terminationGracePeriodSeconds: 60  # Workers may need more time

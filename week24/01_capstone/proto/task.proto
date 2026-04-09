@@ -1,0 +1,161 @@
+// ========================================
+// TaskFlow Protobuf Definitions
+// ========================================
+// Protocol Buffers (protobuf) define the gRPC service contract.
+// This file is the single source of truth for the gRPC API —
+// both server and client code are generated from it.
+//
+// This demonstrates Week 15-16: gRPC and Protocol Buffers.
+//
+// To generate Go code from this file:
+//   protoc --go_out=. --go_opt=paths=source_relative \
+//          --go-grpc_out=. --go-grpc_opt=paths=source_relative \
+//          proto/task.proto
+//
+// Prerequisites:
+//   go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+//   go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+syntax = "proto3";
+
+package taskflow.v1;
+
+option go_package = "github.com/sri/learngo/week24/01_capstone/proto";
+
+import "google/protobuf/timestamp.proto";
+
+// ========================================
+// Service Definition
+// ========================================
+// The service defines the RPC methods available to clients.
+// Each method takes a request message and returns a response message.
+
+service TaskService {
+  // CreateTask creates a new task for the authenticated user.
+  rpc CreateTask(CreateTaskRequest) returns (CreateTaskResponse);
+
+  // GetTask retrieves a single task by ID.
+  rpc GetTask(GetTaskRequest) returns (GetTaskResponse);
+
+  // ListTasks returns a filtered, paginated list of tasks.
+  rpc ListTasks(ListTasksRequest) returns (ListTasksResponse);
+
+  // UpdateTask modifies an existing task.
+  rpc UpdateTask(UpdateTaskRequest) returns (UpdateTaskResponse);
+
+  // DeleteTask permanently removes a task.
+  rpc DeleteTask(DeleteTaskRequest) returns (DeleteTaskResponse);
+
+  // CompleteTask marks a task as completed.
+  rpc CompleteTask(CompleteTaskRequest) returns (CompleteTaskResponse);
+
+  // StreamTasks returns a stream of tasks matching the filter.
+  // This demonstrates server-side streaming — the server sends
+  // multiple responses for a single request.
+  rpc StreamTasks(ListTasksRequest) returns (stream Task);
+}
+
+// ========================================
+// Messages — Domain Types
+// ========================================
+
+// Priority represents the urgency level of a task.
+enum Priority {
+  PRIORITY_UNSPECIFIED = 0;
+  PRIORITY_LOW = 1;
+  PRIORITY_MEDIUM = 2;
+  PRIORITY_HIGH = 3;
+}
+
+// Status represents the lifecycle state of a task.
+enum Status {
+  STATUS_UNSPECIFIED = 0;
+  STATUS_PENDING = 1;
+  STATUS_IN_PROGRESS = 2;
+  STATUS_COMPLETED = 3;
+  STATUS_ARCHIVED = 4;
+}
+
+// Task is the core domain message.
+message Task {
+  string id = 1;
+  string user_id = 2;
+  string title = 3;
+  string description = 4;
+  Priority priority = 5;
+  Status status = 6;
+  repeated string tags = 7;
+  google.protobuf.Timestamp due_date = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+  google.protobuf.Timestamp completed_at = 11;
+  bool is_overdue = 12;
+}
+
+// ========================================
+// Request/Response Messages
+// ========================================
+
+message CreateTaskRequest {
+  string title = 1;
+  string description = 2;
+  Priority priority = 3;
+  repeated string tags = 4;
+  google.protobuf.Timestamp due_date = 5;
+}
+
+message CreateTaskResponse {
+  Task task = 1;
+}
+
+message GetTaskRequest {
+  string id = 1;
+}
+
+message GetTaskResponse {
+  Task task = 1;
+}
+
+message ListTasksRequest {
+  Status status = 1;
+  Priority priority = 2;
+  repeated string tags = 3;
+  int32 limit = 4;
+  int32 offset = 5;
+}
+
+message ListTasksResponse {
+  repeated Task tasks = 1;
+  int32 total = 2;
+}
+
+message UpdateTaskRequest {
+  string id = 1;
+  optional string title = 2;
+  optional string description = 3;
+  optional Priority priority = 4;
+  optional Status status = 5;
+  repeated string tags = 6;
+  optional google.protobuf.Timestamp due_date = 7;
+}
+
+message UpdateTaskResponse {
+  Task task = 1;
+}
+
+message DeleteTaskRequest {
+  string id = 1;
+}
+
+message DeleteTaskResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message CompleteTaskRequest {
+  string id = 1;
+}
+
+message CompleteTaskResponse {
+  Task task = 1;
+}

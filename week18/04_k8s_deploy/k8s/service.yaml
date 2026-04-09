@@ -1,0 +1,112 @@
+# ========================================
+# Kubernetes Service Manifests
+# ========================================
+#
+# Services provide stable network endpoints for accessing Pods.
+#
+# Why do we need Services?
+#   - Pods are ephemeral — they can be created and destroyed
+#   - Pod IP addresses change when Pods restart
+#   - Services give you a stable DNS name and IP
+#   - Services load-balance across multiple Pod replicas
+#
+# Service types:
+#   ClusterIP:    Internal only (default) — accessible within the cluster
+#   NodePort:     Exposes on each node's IP at a static port
+#   LoadBalancer: Provisions a cloud load balancer (AWS ALB, GCP LB)
+#   ExternalName: Maps to an external DNS name
+#
+# To apply:
+#   kubectl apply -f service.yaml
+#
+# To check:
+#   kubectl get services
+#   kubectl describe service api-gateway-service
+
+# ========================================
+# API Gateway Service — exposed externally
+# ========================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway-service
+  labels:
+    app: api-gateway
+    tier: frontend
+spec:
+  # LoadBalancer type provisions a cloud load balancer.
+  # On minikube/local: use "minikube tunnel" or switch to NodePort.
+  # On AWS: creates an ALB or NLB
+  # On GCP: creates a Network Load Balancer
+  type: LoadBalancer
+
+  # Port configuration
+  ports:
+    - name: http
+      # Port the Service listens on (within the cluster)
+      port: 80
+      # Port on the Pod to forward to
+      targetPort: 8080
+      # Protocol (default is TCP)
+      protocol: TCP
+
+  # Selector — which Pods does this Service route to?
+  # Must match the Pod labels in the Deployment
+  selector:
+    app: api-gateway
+
+  # Session affinity: route all requests from the same client
+  # to the same Pod (optional, useful for stateful apps)
+  # sessionAffinity: ClientIP
+
+---
+# ========================================
+# Worker Service — internal only
+# ========================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: worker-service
+  labels:
+    app: worker
+    tier: backend
+spec:
+  # ClusterIP (default) — only accessible within the cluster.
+  # The API Gateway reaches the worker via:
+  #   http://worker-service:8081
+  #
+  # Kubernetes DNS resolves "worker-service" to the Service's ClusterIP.
+  # The Service load-balances across all worker Pod replicas.
+  type: ClusterIP
+
+  ports:
+    - name: http
+      port: 8081
+      targetPort: 8081
+      protocol: TCP
+
+  selector:
+    app: worker
+
+---
+# ========================================
+# Headless Service Example (educational)
+# ========================================
+# A headless service (clusterIP: None) doesn't load-balance.
+# Instead, DNS returns the IP addresses of ALL Pods directly.
+# Useful for: StatefulSets, service discovery, peer-to-peer.
+#
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: worker-headless
+# spec:
+#   clusterIP: None
+#   selector:
+#     app: worker
+#   ports:
+#     - port: 8081
+#       targetPort: 8081
+#
+# DNS query "worker-headless" returns IPs of ALL worker Pods.
+# Each Pod also gets a DNS name: worker-0.worker-headless, etc.

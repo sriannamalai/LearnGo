@@ -1,0 +1,133 @@
+# ========================================
+# Docker Compose: Observable Microservices Stack
+# ========================================
+#
+# Week 19 Mini-Project — complete observable stack.
+#
+# This compose file runs:
+#   1. API Service:       receives requests (port 8080)
+#   2. Processor Service: processes work (port 8081)
+#   3. Prometheus:        scrapes and stores metrics (port 9090)
+#
+# To run:
+#   docker-compose up --build
+#
+# Then visit:
+#   http://localhost:8080/         — API service
+#   http://localhost:8080/metrics  — API Prometheus metrics
+#   http://localhost:8081/metrics  — Processor Prometheus metrics
+#   http://localhost:9090/         — Prometheus UI
+#
+# Useful Prometheus queries:
+#   rate(api_requests_total[5m])                                   — Request rate
+#   histogram_quantile(0.95, rate(api_request_duration_seconds_bucket[5m]))  — P95 latency
+#   processor_tasks_processed_total                                — Total tasks processed
+#   processor_queue_depth                                          — Current queue depth
+
+services:
+
+  # ========================================
+  # API Service
+  # ========================================
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: observable-api
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - PROCESSOR_URL=http://processor:8081
+      - ENVIRONMENT=docker
+    depends_on:
+      processor:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - observability
+
+  # ========================================
+  # Processor Service
+  # ========================================
+  processor:
+    build:
+      context: ./processor
+      dockerfile: Dockerfile
+    container_name: observable-processor
+    expose:
+      - "8081"
+    environment:
+      - PORT=8081
+      - ENVIRONMENT=docker
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8081/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - observability
+
+  # ========================================
+  # Prometheus — Metrics Collection
+  # ========================================
+  # Prometheus scrapes /metrics endpoints from our services
+  # and stores time-series data for querying and alerting.
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      # Mount the Prometheus config file
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=1d"  # Keep 1 day of data
+      - "--web.enable-lifecycle"              # Enable config reload via API
+    restart: unless-stopped
+    networks:
+      - observability
+
+  # ========================================
+  # Future additions (commented out for reference)
+  # ========================================
+
+  # Grafana — Dashboards and visualization
+  # grafana:
+  #   image: grafana/grafana:10.4.0
+  #   container_name: grafana
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     - GF_SECURITY_ADMIN_PASSWORD=admin
+  #   volumes:
+  #     - grafana-data:/var/lib/grafana
+  #   networks:
+  #     - observability
+
+  # Jaeger — Distributed tracing UI
+  # jaeger:
+  #   image: jaegertracing/all-in-one:1.57
+  #   container_name: jaeger
+  #   ports:
+  #     - "16686:16686"  # Jaeger UI
+  #     - "4317:4317"    # OTLP gRPC
+  #     - "4318:4318"    # OTLP HTTP
+  #   environment:
+  #     - COLLECTOR_OTLP_ENABLED=true
+  #   networks:
+  #     - observability
+
+networks:
+  observability:
+    driver: bridge

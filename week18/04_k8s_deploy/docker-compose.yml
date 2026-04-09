@@ -1,0 +1,95 @@
+# ========================================
+# Docker Compose: Microservices Stack
+# ========================================
+#
+# Week 18 Mini-Project — full stack deployment.
+#
+# This compose file runs:
+#   1. API Gateway: accepts client requests (exposed on port 8080)
+#   2. Worker: processes tasks (internal only)
+#
+# Commands:
+#   docker-compose up --build     Build and start all services
+#   docker-compose up -d          Start in background
+#   docker-compose down           Stop all services
+#   docker-compose logs -f api    Follow API logs
+#   docker-compose scale worker=3 Run 3 worker instances
+#
+# Test:
+#   curl http://localhost:8080/
+#   curl -X POST http://localhost:8080/tasks -d '{"data":"hello"}'
+#   curl http://localhost:8080/tasks
+
+services:
+
+  # ========================================
+  # API Gateway — public-facing service
+  # ========================================
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - ENVIRONMENT=docker
+      - WORKER_URL=http://worker:8081
+    depends_on:
+      worker:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 128M
+    networks:
+      - backend
+
+  # ========================================
+  # Worker — internal processing service
+  # ========================================
+  worker:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    # No container_name when scaling (each instance needs a unique name)
+    # container_name: worker
+    environment:
+      - PORT=8081
+      - ENVIRONMENT=docker
+    # Not exposed to the outside — only accessible within the Docker network
+    expose:
+      - "8081"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8081/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    deploy:
+      # You can scale workers to handle more load:
+      #   docker-compose up --scale worker=3
+      replicas: 1
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256M
+    networks:
+      - backend
+
+# ========================================
+# Networks
+# ========================================
+networks:
+  backend:
+    driver: bridge

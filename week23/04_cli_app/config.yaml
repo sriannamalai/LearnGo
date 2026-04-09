@@ -1,0 +1,24 @@
+# ========================================
+# Task Manager CLI Configuration
+# ========================================
+# This file configures the task manager CLI application.
+# Place it in ~/.tasks/config.yaml or the current directory.
+#
+# Environment variables override these values:
+#   TASKS_STORE_PATH=/custom/path/tasks.json
+#   TASKS_DEFAULT_PRIORITY=high
+
+store:
+  # Path to the JSON file where tasks are stored.
+  # Default: ~/.tasks/tasks.json
+  path: "~/.tasks/tasks.json"
+
+display:
+  # Show creation dates in task list
+  show_dates: true
+  # Enable colored output
+  color: true
+
+# Default priority for new tasks when --priority is not specified.
+# Valid values: low, medium, high
+default_priority: "medium"

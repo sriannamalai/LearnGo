@@ -1,0 +1,64 @@
+// ========================================
+// User Service Protocol Buffer Definition
+// ========================================
+// Part of the Week 16 Mini-Project: Two-Service gRPC Application
+//
+// This defines the User service that manages user accounts.
+// The Order service depends on this to validate user existence.
+//
+// Generate Go code:
+//   protoc --go_out=. --go_opt=paths=source_relative \
+//          --go-grpc_out=. --go-grpc_opt=paths=source_relative \
+//          proto/user.proto
+
+syntax = "proto3";
+
+option go_package = "github.com/sri/learngo/week16/04_grpc_services/proto/userpb";
+
+package user;
+
+// ========================================
+// Messages
+// ========================================
+
+message User {
+  string id = 1;
+  string name = 2;
+  string email = 3;
+  string created_at = 4;
+}
+
+message CreateUserRequest {
+  string name = 1;
+  string email = 2;
+}
+
+message CreateUserResponse {
+  User user = 1;
+}
+
+message GetUserRequest {
+  string id = 1;
+}
+
+message GetUserResponse {
+  User user = 1;
+}
+
+message ListUsersRequest {
+  // Empty — returns all users
+}
+
+message ListUsersResponse {
+  repeated User users = 1;
+}
+
+// ========================================
+// Service
+// ========================================
+
+service UserService {
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+}

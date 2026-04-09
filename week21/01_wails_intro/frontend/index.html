@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hello Wails</title>
+    <!--
+    ========================================
+    Week 21 — Lesson 1: Wails Frontend
+    ========================================
+    This is the frontend for our Wails application.
+
+    Key concepts:
+    - Wails injects a global runtime at window.runtime
+    - Bound Go methods are available at window.go.main.StructName.MethodName()
+    - All Go method calls return Promises (they're async)
+    - The frontend is rendered in a native WebView, not a browser
+    - You can use any web framework (React, Vue, Svelte, etc.)
+
+    In a real Wails project, this file would be embedded into
+    the Go binary using Go's embed package:
+
+        //go:embed all:frontend
+        var assets embed.FS
+    -->
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            text-align: center;
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            color: #e94560;
+        }
+
+        .subtitle {
+            color: #888;
+            margin-bottom: 30px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+
+        input {
+            padding: 12px 20px;
+            border: 2px solid #333;
+            border-radius: 8px;
+            background: #1a1a2e;
+            color: #e0e0e0;
+            font-size: 1rem;
+            width: 300px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            border-color: #e94560;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            background: #e94560;
+            color: white;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.3s, transform 0.1s;
+        }
+
+        button:hover {
+            background: #c73a52;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        #result {
+            font-size: 1.3rem;
+            margin: 20px 0;
+            min-height: 40px;
+            color: #53d769;
+        }
+
+        .info-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+            text-align: left;
+        }
+
+        .info-card h3 {
+            color: #e94560;
+            margin-bottom: 10px;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .info-item:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            color: #888;
+        }
+
+        .info-value {
+            color: #e0e0e0;
+            font-family: monospace;
+        }
+
+        #time-display {
+            color: #888;
+            margin-top: 20px;
+            font-size: 0.9rem;
+        }
+
+        .buttons-row {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 15px;
+        }
+
+        .btn-secondary {
+            background: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #444;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Hello Wails!</h1>
+        <p class="subtitle">Go Backend + Web Frontend = Native Desktop App</p>
+
+        <!-- Greeting Section -->
+        <div class="input-group">
+            <input type="text" id="nameInput" placeholder="Enter your name..." />
+            <button onclick="greet()">Greet</button>
+        </div>
+
+        <div id="result"></div>
+
+        <!-- System Info Section -->
+        <div class="info-card">
+            <h3>System Information</h3>
+            <div id="systemInfo">
+                <p style="color: #888;">Click "Load Info" to fetch from Go backend</p>
+            </div>
+            <div class="buttons-row">
+                <button class="btn-secondary" onclick="loadSystemInfo()">Load Info</button>
+                <button class="btn-secondary" onclick="loadTime()">Get Time</button>
+            </div>
+        </div>
+
+        <!-- Calculator Section -->
+        <div class="info-card">
+            <h3>Go Calculator</h3>
+            <div class="input-group">
+                <input type="number" id="num1" placeholder="A" style="width: 80px;" />
+                <span style="line-height: 45px; color: #888;">+</span>
+                <input type="number" id="num2" placeholder="B" style="width: 80px;" />
+                <button onclick="calculate()">Add</button>
+            </div>
+            <div id="calcResult" style="text-align: center; color: #53d769;"></div>
+        </div>
+
+        <div id="time-display"></div>
+    </div>
+
+    <script>
+        // ========================================
+        // Calling Go Functions from JavaScript
+        // ========================================
+        // Wails generates JavaScript bindings automatically.
+        // Bound Go methods are available as:
+        //   window.go.main.App.MethodName(args)
+        //
+        // All calls return Promises because Go-JS communication
+        // is asynchronous. Use async/await or .then().
+
+        // greet calls the Go App.Greet() method
+        async function greet() {
+            const name = document.getElementById("nameInput").value;
+            try {
+                const result = await window.go.main.App.Greet(name);
+                document.getElementById("result").textContent = result;
+            } catch (err) {
+                document.getElementById("result").textContent = "Error: " + err;
+            }
+        }
+
+        // loadSystemInfo calls Go App.GetSystemInfo()
+        // which returns a map[string]string that becomes a JS object
+        async function loadSystemInfo() {
+            try {
+                const info = await window.go.main.App.GetSystemInfo();
+                const container = document.getElementById("systemInfo");
+                // Clear existing content
+                while (container.firstChild) {
+                    container.removeChild(container.firstChild);
+                }
+
+                for (const [key, value] of Object.entries(info)) {
+                    const item = document.createElement("div");
+                    item.className = "info-item";
+
+                    const labelSpan = document.createElement("span");
+                    labelSpan.className = "info-label";
+                    labelSpan.textContent = key;
+
+                    const valueSpan = document.createElement("span");
+                    valueSpan.className = "info-value";
+                    valueSpan.textContent = value;
+
+                    item.appendChild(labelSpan);
+                    item.appendChild(valueSpan);
+                    container.appendChild(item);
+                }
+            } catch (err) {
+                console.error("Failed to load system info:", err);
+            }
+        }
+
+        // loadTime calls Go App.GetTime()
+        async function loadTime() {
+            try {
+                const time = await window.go.main.App.GetTime();
+                document.getElementById("time-display").textContent = time;
+            } catch (err) {
+                console.error("Failed to get time:", err);
+            }
+        }
+
+        // calculate calls Go App.Add() with two numbers
+        async function calculate() {
+            const a = parseInt(document.getElementById("num1").value) || 0;
+            const b = parseInt(document.getElementById("num2").value) || 0;
+            try {
+                const result = await window.go.main.App.Add(a, b);
+                document.getElementById("calcResult").textContent =
+                    a + " + " + b + " = " + result;
+            } catch (err) {
+                document.getElementById("calcResult").textContent = "Error: " + err;
+            }
+        }
+
+        // Allow Enter key to trigger greet
+        document.getElementById("nameInput").addEventListener("keypress", function(e) {
+            if (e.key === "Enter") greet();
+        });
+    </script>
+</body>
+</html>

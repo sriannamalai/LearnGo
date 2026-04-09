@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wails Bindings Demo</title>
+    <!--
+    ========================================
+    Week 21 — Lesson 2: Frontend Bindings
+    ========================================
+    This frontend demonstrates calling bound Go services:
+    - TodoService: CRUD operations on todo items
+    - EventService: Bidirectional event communication
+    - WindowOps: Window control from JavaScript
+
+    Binding access pattern:
+      window.go.main.ServiceName.MethodName(args)
+
+    All calls are async (return Promises).
+    -->
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #0d1117;
+            color: #c9d1d9;
+            padding: 20px;
+        }
+
+        h1 { text-align: center; color: #58a6ff; margin-bottom: 5px; }
+        .subtitle { text-align: center; color: #8b949e; margin-bottom: 25px; }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .card h2 {
+            color: #58a6ff;
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #30363d;
+        }
+
+        .todo-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            margin: 5px 0;
+            background: #0d1117;
+            border-radius: 6px;
+            border: 1px solid #21262d;
+        }
+
+        .todo-item.completed { opacity: 0.6; }
+        .todo-item.completed .todo-title { text-decoration: line-through; }
+        .todo-title { flex: 1; }
+
+        .priority-badge {
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+
+        .priority-high { background: #f8514933; color: #f85149; }
+        .priority-medium { background: #d2992233; color: #d29922; }
+        .priority-low { background: #3fb95033; color: #3fb950; }
+
+        .btn {
+            padding: 6px 14px;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            background: #21262d;
+            color: #c9d1d9;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: background 0.2s;
+        }
+
+        .btn:hover { background: #30363d; }
+        .btn-primary { background: #238636; border-color: #238636; }
+        .btn-primary:hover { background: #2ea043; }
+        .btn-danger { background: #da3633; border-color: #da3633; }
+        .btn-danger:hover { background: #f85149; }
+
+        .input-row { display: flex; gap: 8px; margin-bottom: 15px; }
+
+        input, select {
+            padding: 8px 12px;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            background: #0d1117;
+            color: #c9d1d9;
+            font-size: 0.9rem;
+            outline: none;
+        }
+
+        input:focus, select:focus { border-color: #58a6ff; }
+        input { flex: 1; }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .stat-box {
+            background: #0d1117;
+            border: 1px solid #21262d;
+            border-radius: 6px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .stat-value { font-size: 1.5rem; font-weight: bold; color: #58a6ff; }
+        .stat-label { font-size: 0.8rem; color: #8b949e; margin-top: 4px; }
+
+        .event-log {
+            background: #0d1117;
+            border: 1px solid #21262d;
+            border-radius: 6px;
+            padding: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.85rem;
+        }
+
+        .event-log .event-entry { padding: 4px 0; border-bottom: 1px solid #21262d; }
+        .event-log .event-time { color: #8b949e; }
+        .event-log .event-msg { color: #3fb950; }
+
+        .full-width { grid-column: 1 / -1; }
+
+        .quote-box {
+            background: #0d1117;
+            border-left: 3px solid #58a6ff;
+            padding: 15px;
+            border-radius: 0 6px 6px 0;
+            margin-top: 10px;
+        }
+
+        .quote-text { font-style: italic; color: #c9d1d9; margin-bottom: 5px; }
+        .quote-author { color: #8b949e; font-size: 0.85rem; }
+    </style>
+</head>
+<body>
+    <h1>Wails Bindings Demo</h1>
+    <p class="subtitle">Calling Go services from JavaScript</p>
+
+    <div class="grid">
+        <!-- Todo List Card -->
+        <div class="card">
+            <h2>Todo Service</h2>
+            <div class="input-row">
+                <input type="text" id="todoInput" placeholder="New task..." />
+                <select id="todoPriority">
+                    <option value="low">Low</option>
+                    <option value="medium" selected>Medium</option>
+                    <option value="high">High</option>
+                </select>
+                <button class="btn btn-primary" onclick="addTodo()">Add</button>
+            </div>
+            <div id="todoList"><p style="color: #8b949e;">Loading...</p></div>
+            <div style="margin-top: 10px; text-align: right;">
+                <button class="btn" onclick="refreshTodos()">Refresh</button>
+            </div>
+        </div>
+
+        <!-- Stats Card -->
+        <div class="card">
+            <h2>Statistics</h2>
+            <div id="statsGrid" class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-value" id="statTotal">-</div>
+                    <div class="stat-label">Total</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="statCompleted">-</div>
+                    <div class="stat-label">Completed</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="statPending">-</div>
+                    <div class="stat-label">Pending</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="statHigh">-</div>
+                    <div class="stat-label">High Priority</div>
+                </div>
+            </div>
+            <div style="margin-top: 15px;">
+                <button class="btn" onclick="refreshStats()">Refresh Stats</button>
+            </div>
+            <div style="margin-top: 20px;">
+                <button class="btn" onclick="loadQuote()">Random Quote</button>
+                <div id="quoteBox" class="quote-box" style="display: none;">
+                    <div class="quote-text" id="quoteText"></div>
+                    <div class="quote-author" id="quoteAuthor"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Events Card -->
+        <div class="card full-width">
+            <h2>Event System</h2>
+            <p style="color: #8b949e; margin-bottom: 10px;">
+                Events allow bidirectional communication between Go and JavaScript.
+            </p>
+            <div class="input-row">
+                <button class="btn btn-primary" onclick="sendPing()">Send Ping to Go</button>
+                <button class="btn" onclick="requestNotification()">Request Notification</button>
+                <button class="btn" onclick="startTask()">Start Background Task</button>
+                <button class="btn btn-danger" onclick="clearLog()">Clear Log</button>
+            </div>
+            <div class="event-log" id="eventLog">
+                <div class="event-entry">
+                    <span class="event-time">[--:--:--]</span>
+                    <span class="event-msg">Event log initialized. Waiting for events...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========================================
+        // Todo Service Calls
+        // ========================================
+
+        // Render a single todo item using safe DOM methods
+        function createTodoElement(todo) {
+            const div = document.createElement("div");
+            div.className = "todo-item" + (todo.completed ? " completed" : "");
+
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = todo.completed;
+            checkbox.addEventListener("change", function() { toggleTodo(todo.id); });
+
+            const titleSpan = document.createElement("span");
+            titleSpan.className = "todo-title";
+            titleSpan.textContent = todo.title;
+
+            const badge = document.createElement("span");
+            badge.className = "priority-badge priority-" + todo.priority;
+            badge.textContent = todo.priority;
+
+            const deleteBtn = document.createElement("button");
+            deleteBtn.className = "btn btn-danger";
+            deleteBtn.textContent = "\u00d7";
+            deleteBtn.addEventListener("click", function() { deleteTodo(todo.id); });
+
+            div.appendChild(checkbox);
+            div.appendChild(titleSpan);
+            div.appendChild(badge);
+            div.appendChild(deleteBtn);
+            return div;
+        }
+
+        // Fetch and render all todos from Go backend
+        async function refreshTodos() {
+            try {
+                const todos = await window.go.main.TodoService.GetAll();
+                const container = document.getElementById("todoList");
+                while (container.firstChild) {
+                    container.removeChild(container.firstChild);
+                }
+
+                if (todos.length === 0) {
+                    const p = document.createElement("p");
+                    p.style.color = "#8b949e";
+                    p.style.textAlign = "center";
+                    p.textContent = "No todos yet";
+                    container.appendChild(p);
+                    return;
+                }
+
+                todos.forEach(function(todo) {
+                    container.appendChild(createTodoElement(todo));
+                });
+
+                refreshStats();
+            } catch (err) {
+                logEvent("Error loading todos: " + err);
+            }
+        }
+
+        async function addTodo() {
+            const input = document.getElementById("todoInput");
+            const priority = document.getElementById("todoPriority").value;
+            const title = input.value.trim();
+            if (!title) return;
+
+            try {
+                const todo = await window.go.main.TodoService.AddTodo(title, priority);
+                logEvent("Added todo: \"" + todo.title + "\" (" + todo.priority + ")");
+                input.value = "";
+                refreshTodos();
+            } catch (err) {
+                logEvent("Error adding todo: " + err);
+            }
+        }
+
+        async function toggleTodo(id) {
+            try {
+                const todo = await window.go.main.TodoService.ToggleTodo(id);
+                logEvent("Toggled: \"" + todo.title + "\" -> " + (todo.completed ? "done" : "pending"));
+                refreshTodos();
+            } catch (err) {
+                logEvent("Error toggling: " + err);
+            }
+        }
+
+        async function deleteTodo(id) {
+            try {
+                await window.go.main.TodoService.DeleteTodo(id);
+                logEvent("Deleted todo #" + id);
+                refreshTodos();
+            } catch (err) {
+                logEvent("Error deleting: " + err);
+            }
+        }
+
+        // ========================================
+        // Stats
+        // ========================================
+
+        async function refreshStats() {
+            try {
+                const stats = await window.go.main.TodoService.GetStats();
+                document.getElementById("statTotal").textContent = stats.total;
+                document.getElementById("statCompleted").textContent = stats.completed;
+                document.getElementById("statPending").textContent = stats.pending;
+                document.getElementById("statHigh").textContent = stats.highPriority;
+            } catch (err) {
+                logEvent("Error loading stats: " + err);
+            }
+        }
+
+        // ========================================
+        // Events
+        // ========================================
+
+        function sendPing() {
+            // In a real Wails app:
+            // window.runtime.EventsEmit("frontend:ping", { time: new Date().toISOString() });
+            logEvent("Sent ping to Go backend (frontend:ping)");
+        }
+
+        async function requestNotification() {
+            try {
+                await window.go.main.EventService.SendNotification(
+                    "Hello!", "This is a notification from Go"
+                );
+                logEvent("Notification sent from Go");
+            } catch (err) {
+                logEvent("Error: " + err);
+            }
+        }
+
+        async function startTask() {
+            try {
+                await window.go.main.EventService.StartBackgroundTask("Data Processing");
+                logEvent("Background task started in Go");
+            } catch (err) {
+                logEvent("Error: " + err);
+            }
+        }
+
+        // ========================================
+        // Quotes
+        // ========================================
+
+        async function loadQuote() {
+            try {
+                const quote = await window.go.main.EventService.GetRandomQuote();
+                document.getElementById("quoteBox").style.display = "block";
+                document.getElementById("quoteText").textContent = "\"" + quote.text + "\"";
+                document.getElementById("quoteAuthor").textContent = "-- " + quote.author;
+            } catch (err) {
+                logEvent("Error loading quote: " + err);
+            }
+        }
+
+        // ========================================
+        // Event Log Helper
+        // ========================================
+
+        function logEvent(message) {
+            const log = document.getElementById("eventLog");
+            const now = new Date().toLocaleTimeString();
+
+            const entry = document.createElement("div");
+            entry.className = "event-entry";
+
+            const timeSpan = document.createElement("span");
+            timeSpan.className = "event-time";
+            timeSpan.textContent = "[" + now + "]";
+
+            const msgSpan = document.createElement("span");
+            msgSpan.className = "event-msg";
+            msgSpan.textContent = " " + message;
+
+            entry.appendChild(timeSpan);
+            entry.appendChild(msgSpan);
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function clearLog() {
+            const log = document.getElementById("eventLog");
+            while (log.firstChild) {
+                log.removeChild(log.firstChild);
+            }
+            logEvent("Log cleared");
+        }
+
+        // ========================================
+        // Initialize
+        // ========================================
+        document.addEventListener("DOMContentLoaded", function() {
+            refreshTodos();
+            logEvent("Frontend loaded -- bindings ready");
+        });
+
+        document.getElementById("todoInput").addEventListener("keypress", function(e) {
+            if (e.key === "Enter") addTodo();
+        });
+    </script>
+</body>
+</html>

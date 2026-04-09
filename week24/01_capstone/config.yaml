@@ -1,0 +1,50 @@
+# ========================================
+# TaskFlow Application Configuration
+# ========================================
+# This config file is read by Viper during startup.
+# Environment variables override these values with prefix TASKFLOW_:
+#   TASKFLOW_SERVER_HTTP_PORT=3000
+#   TASKFLOW_DATABASE_POSTGRES_HOST=db.example.com
+#
+# For Docker deployment, use environment variables or mount
+# this file as a volume.
+
+server:
+  http_port: 8080
+  grpc_port: 9090
+  read_timeout: "15s"
+  write_timeout: "15s"
+  shutdown_timeout: "30s"
+  cors_origins:
+    - "http://localhost:3000"
+    - "http://localhost:5173"
+
+database:
+  postgres:
+    host: "localhost"
+    port: 5432
+    user: "taskflow"
+    password: "taskflow"
+    dbname: "taskflow"
+    sslmode: "disable"
+    max_conns: 10
+
+  arango:
+    endpoints:
+      - "http://localhost:8529"
+    database: "taskflow"
+    user: "root"
+    password: ""
+
+observability:
+  tracing:
+    enabled: true
+    endpoint: "localhost:4318"
+    service_name: "taskflow"
+
+  metrics:
+    enabled: true
+
+  logging:
+    level: "info"
+    format: "json"

@@ -1,0 +1,82 @@
+// ========================================
+// Order Service Protocol Buffer Definition
+// ========================================
+// Part of the Week 16 Mini-Project: Two-Service gRPC Application
+//
+// This defines the Order service that manages orders.
+// Each order is associated with a user (validated via User service).
+//
+// Generate Go code:
+//   protoc --go_out=. --go_opt=paths=source_relative \
+//          --go-grpc_out=. --go-grpc_opt=paths=source_relative \
+//          proto/order.proto
+
+syntax = "proto3";
+
+option go_package = "github.com/sri/learngo/week16/04_grpc_services/proto/orderpb";
+
+package order;
+
+// ========================================
+// Messages
+// ========================================
+
+message OrderItem {
+  string product_name = 1;
+  int32 quantity = 2;
+  double price = 3;
+}
+
+message Order {
+  string id = 1;
+  string user_id = 2;
+  string user_name = 3;         // Denormalized from User service
+  repeated OrderItem items = 4;
+  double total = 5;
+  OrderStatus status = 6;
+  string created_at = 7;
+}
+
+enum OrderStatus {
+  ORDER_STATUS_UNSPECIFIED = 0;
+  ORDER_STATUS_PENDING = 1;
+  ORDER_STATUS_CONFIRMED = 2;
+  ORDER_STATUS_SHIPPED = 3;
+  ORDER_STATUS_DELIVERED = 4;
+  ORDER_STATUS_CANCELLED = 5;
+}
+
+message CreateOrderRequest {
+  string user_id = 1;
+  repeated OrderItem items = 2;
+}
+
+message CreateOrderResponse {
+  Order order = 1;
+}
+
+message GetOrderRequest {
+  string id = 1;
+}
+
+message GetOrderResponse {
+  Order order = 1;
+}
+
+message ListOrdersByUserRequest {
+  string user_id = 1;
+}
+
+message ListOrdersByUserResponse {
+  repeated Order orders = 1;
+}
+
+// ========================================
+// Service
+// ========================================
+
+service OrderService {
+  rpc CreateOrder(CreateOrderRequest) returns (CreateOrderResponse);
+  rpc GetOrder(GetOrderRequest) returns (GetOrderResponse);
+  rpc ListOrdersByUser(ListOrdersByUserRequest) returns (ListOrdersByUserResponse);
+}

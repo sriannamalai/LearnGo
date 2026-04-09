@@ -1,0 +1,138 @@
+# ========================================
+# Docker Compose: Multi-Service Setup
+# ========================================
+#
+# Docker Compose lets you define and run multi-container applications.
+# It handles:
+#   - Building images from Dockerfiles
+#   - Creating a shared network (services can reach each other by name)
+#   - Managing container lifecycle (start, stop, restart)
+#   - Environment variable injection
+#   - Port mapping
+#
+# Commands:
+#   docker-compose up       — Build and start all services
+#   docker-compose up -d    — Start in background (detached)
+#   docker-compose down     — Stop and remove containers
+#   docker-compose logs -f  — Follow logs from all services
+#   docker-compose ps       — List running services
+#   docker-compose build    — Rebuild images
+#
+# To run:
+#   docker-compose up --build
+
+# ========================================
+# Version and Services
+# ========================================
+services:
+
+  # ========================================
+  # Service A: HTTP API Gateway
+  # ========================================
+  service-a:
+    # Build from the service_a directory's Dockerfile
+    # (you'd create a Dockerfile similar to 01_dockerfile/Dockerfile)
+    build:
+      context: ./service_a
+      dockerfile: Dockerfile
+
+    # Container name (optional, but useful for debugging)
+    container_name: service-a
+
+    # Port mapping: HOST_PORT:CONTAINER_PORT
+    # This makes the service accessible from outside Docker
+    ports:
+      - "8080:8080"
+
+    # Environment variables
+    # These are read by the Go code via os.Getenv()
+    environment:
+      - PORT=8080
+      - ENVIRONMENT=docker
+      # Service B is accessed by its service name (Docker DNS)
+      - SERVICE_B_URL=http://service-b:8081
+
+    # Dependencies: start Service B before Service A
+    depends_on:
+      service-b:
+        condition: service_healthy
+
+    # Restart policy
+    # "unless-stopped" restarts on crash but not if manually stopped
+    restart: unless-stopped
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+    # Resource limits (prevent runaway containers)
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"      # Max 50% of one CPU
+          memory: 128M     # Max 128 MB RAM
+        reservations:
+          cpus: "0.1"
+          memory: 32M
+
+    # Connect to our custom network
+    networks:
+      - app-network
+
+  # ========================================
+  # Service B: Worker/Processor
+  # ========================================
+  service-b:
+    build:
+      context: ./service_b
+      dockerfile: Dockerfile
+
+    container_name: service-b
+
+    # No port mapping! Service B is only accessible within Docker.
+    # This is a common pattern:
+    #   - Service A (API) is exposed to the outside world
+    #   - Service B (worker) is internal only
+    # If you need to debug, uncomment the ports:
+    # ports:
+    #   - "8081:8081"
+
+    environment:
+      - PORT=8081
+      - ENVIRONMENT=docker
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8081/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256M
+
+    networks:
+      - app-network
+
+# ========================================
+# Networks
+# ========================================
+# Custom network gives you:
+#   - DNS resolution (containers reach each other by service name)
+#   - Network isolation (only these containers can communicate)
+#   - No need for IP addresses
+networks:
+  app-network:
+    driver: bridge
+    # The "bridge" driver creates an isolated network.
+    # Services communicate via Docker's built-in DNS:
+    #   service-a can reach service-b at "http://service-b:8081"

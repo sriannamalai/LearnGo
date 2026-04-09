@@ -1,0 +1,375 @@
+/* ========================================
+   Week 21 — Lesson 3: Dashboard Styles
+   ========================================
+   Clean, dark-themed dashboard CSS.
+   No external dependencies — all styling is self-contained.
+   Uses CSS Grid and Flexbox for responsive layout.
+*/
+
+/* ========================================
+   Reset and Base Styles
+   ======================================== */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, sans-serif;
+    background: #0d1117;
+    color: #c9d1d9;
+    line-height: 1.6;
+    min-height: 100vh;
+}
+
+/* ========================================
+   Header
+   ======================================== */
+
+header {
+    background: #161b22;
+    border-bottom: 1px solid #30363d;
+    padding: 15px 25px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+header h1 {
+    font-size: 1.3rem;
+    color: #58a6ff;
+    font-weight: 600;
+}
+
+.header-info {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    font-size: 0.85rem;
+    color: #8b949e;
+}
+
+.separator {
+    color: #30363d;
+}
+
+/* ========================================
+   Dashboard Layout
+   ======================================== */
+
+.dashboard {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.card-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.card-row.two-col {
+    grid-template-columns: 1fr 1fr;
+}
+
+/* ========================================
+   Cards
+   ======================================== */
+
+.card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 18px;
+    transition: border-color 0.2s;
+}
+
+.card:hover {
+    border-color: #484f58;
+}
+
+.card h2 {
+    font-size: 0.95rem;
+    color: #8b949e;
+    margin-bottom: 15px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.card.full-width {
+    grid-column: 1 / -1;
+}
+
+/* ========================================
+   Stat Cards (top row)
+   ======================================== */
+
+.stat-card {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 20px;
+}
+
+.card-icon {
+    font-size: 2rem;
+    opacity: 0.7;
+}
+
+.stat-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #f0f6fc;
+    line-height: 1.2;
+}
+
+.stat-label {
+    font-size: 0.8rem;
+    color: #8b949e;
+    margin-top: 2px;
+}
+
+/* ========================================
+   Progress Bars
+   ======================================== */
+
+.progress-section {
+    margin-bottom: 15px;
+}
+
+.progress-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    color: #8b949e;
+    margin-bottom: 6px;
+}
+
+.progress-bar {
+    background: #21262d;
+    border-radius: 4px;
+    height: 8px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    border-radius: 4px;
+    background: linear-gradient(90deg, #238636, #3fb950);
+    transition: width 0.5s ease;
+}
+
+.progress-fill.warning {
+    background: linear-gradient(90deg, #9e6a03, #d29922);
+}
+
+.progress-fill.danger {
+    background: linear-gradient(90deg, #da3633, #f85149);
+}
+
+.progress-fill.cpu-fill {
+    background: linear-gradient(90deg, #1f6feb, #58a6ff);
+}
+
+/* ========================================
+   Detail Grid
+   ======================================== */
+
+.detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.detail-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 10px;
+    background: #0d1117;
+    border-radius: 4px;
+    font-size: 0.85rem;
+}
+
+.detail-label {
+    color: #8b949e;
+}
+
+.detail-value {
+    color: #f0f6fc;
+    font-family: "SF Mono", Monaco, "Cascadia Code", monospace;
+    font-size: 0.83rem;
+}
+
+/* ========================================
+   Bar Chart (CSS-only)
+   ======================================== */
+
+.bar-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 60px;
+    margin-top: 8px;
+    padding: 5px;
+    background: #0d1117;
+    border-radius: 4px;
+}
+
+.chart-bar {
+    flex: 1;
+    background: linear-gradient(180deg, #58a6ff, #1f6feb);
+    border-radius: 2px 2px 0 0;
+    min-height: 2px;
+    transition: height 0.3s ease;
+}
+
+/* ========================================
+   Disk Items
+   ======================================== */
+
+.disk-item {
+    margin-bottom: 12px;
+}
+
+.disk-item:last-child {
+    margin-bottom: 0;
+}
+
+.disk-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    margin-bottom: 4px;
+}
+
+.disk-mount {
+    color: #f0f6fc;
+    font-family: "SF Mono", Monaco, monospace;
+}
+
+.disk-usage {
+    color: #8b949e;
+}
+
+/* ========================================
+   Tags
+   ======================================== */
+
+.tag-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.tag {
+    background: #21262d;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    padding: 3px 10px;
+    font-size: 0.8rem;
+    font-family: "SF Mono", Monaco, monospace;
+    color: #c9d1d9;
+}
+
+/* ========================================
+   Environment Grid
+   ======================================== */
+
+.env-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+
+.env-item {
+    display: flex;
+    flex-direction: column;
+    padding: 10px 12px;
+    background: #0d1117;
+    border-radius: 4px;
+}
+
+.env-label {
+    font-size: 0.75rem;
+    color: #8b949e;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+
+.env-value {
+    font-size: 0.85rem;
+    color: #f0f6fc;
+    font-family: "SF Mono", Monaco, monospace;
+    word-break: break-all;
+}
+
+/* ========================================
+   Footer
+   ======================================== */
+
+footer {
+    background: #161b22;
+    border-top: 1px solid #30363d;
+    padding: 10px 25px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: #8b949e;
+    margin-top: 20px;
+}
+
+/* ========================================
+   Utility
+   ======================================== */
+
+.placeholder {
+    color: #484f58;
+    font-style: italic;
+    font-size: 0.85rem;
+}
+
+/* ========================================
+   Responsive
+   ======================================== */
+
+@media (max-width: 900px) {
+    .card-row {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .card-row.two-col {
+        grid-template-columns: 1fr;
+    }
+
+    .env-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 600px) {
+    .card-row {
+        grid-template-columns: 1fr;
+    }
+
+    .env-grid {
+        grid-template-columns: 1fr;
+    }
+
+    header {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .header-info {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+}

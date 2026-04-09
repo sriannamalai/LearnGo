@@ -1,0 +1,152 @@
+# ========================================
+# TaskFlow Docker Compose Stack
+# ========================================
+# This file defines the complete development and production stack
+# for TaskFlow. Docker Compose orchestrates multiple containers
+# as a single application. This demonstrates:
+#   - Week 19-20: Docker Compose patterns
+#   - Service dependencies and health checks
+#   - Volume management for data persistence
+#   - Network isolation between services
+#   - Environment-based configuration
+#
+# Usage:
+#   docker-compose up                    # Start all services
+#   docker-compose up -d                 # Start in background
+#   docker-compose logs -f taskflow      # Follow app logs
+#   docker-compose exec taskflow sh      # Shell into container
+#   docker-compose down                  # Stop and remove
+#   docker-compose down -v               # Stop and remove volumes
+
+services:
+  # ========================================
+  # TaskFlow Application
+  # ========================================
+  taskflow:
+    build:
+      context: ../..
+      dockerfile: 01_capstone/Dockerfile
+    ports:
+      - "8080:8080"   # HTTP REST API
+      - "9090:9090"   # gRPC API
+    environment:
+      # Override config values via environment variables
+      TASKFLOW_DATABASE_POSTGRES_HOST: postgres
+      TASKFLOW_DATABASE_POSTGRES_PORT: "5432"
+      TASKFLOW_DATABASE_POSTGRES_USER: taskflow
+      TASKFLOW_DATABASE_POSTGRES_PASSWORD: taskflow
+      TASKFLOW_DATABASE_POSTGRES_DBNAME: taskflow
+      TASKFLOW_DATABASE_ARANGO_ENDPOINTS: '["http://arangodb:8529"]'
+      TASKFLOW_OBSERVABILITY_TRACING_ENDPOINT: "jaeger:4318"
+      TASKFLOW_OBSERVABILITY_LOGGING_LEVEL: info
+      TASKFLOW_OBSERVABILITY_LOGGING_FORMAT: json
+    depends_on:
+      postgres:
+        condition: service_healthy
+      arangodb:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - taskflow-network
+
+  # ========================================
+  # PostgreSQL — Primary Data Store
+  # ========================================
+  # PostgreSQL stores tasks and users with full ACID transactions.
+  # This is the primary data store for the application.
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: taskflow
+      POSTGRES_PASSWORD: taskflow
+      POSTGRES_DB: taskflow
+    ports:
+      - "5432:5432"    # Expose for local development tools
+    volumes:
+      # Named volume for persistent data across container restarts
+      - postgres-data:/var/lib/postgresql/data
+      # Mount the migration SQL as an init script
+      # PostgreSQL automatically runs .sql files in /docker-entrypoint-initdb.d/
+      - ./migrations/001_create_tables.sql:/docker-entrypoint-initdb.d/001_create_tables.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U taskflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - taskflow-network
+
+  # ========================================
+  # ArangoDB — Graph & Document Store
+  # ========================================
+  # ArangoDB provides graph capabilities for task dependencies
+  # and flexible document queries for tags.
+  arangodb:
+    image: arangodb:3.12
+    environment:
+      ARANGO_NO_AUTH: "1"    # No auth for development (use auth in production!)
+    ports:
+      - "8529:8529"    # Web UI at http://localhost:8529
+    volumes:
+      - arango-data:/var/lib/arangodb3
+    restart: unless-stopped
+    networks:
+      - taskflow-network
+
+  # ========================================
+  # Prometheus — Metrics Collection
+  # ========================================
+  # Prometheus scrapes the /metrics endpoint from TaskFlow and
+  # stores time-series data for dashboards and alerting.
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    ports:
+      - "9091:9090"    # Web UI at http://localhost:9091
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=7d"
+    restart: unless-stopped
+    networks:
+      - taskflow-network
+
+  # ========================================
+  # Jaeger — Distributed Tracing
+  # ========================================
+  # Jaeger collects and visualizes distributed traces from
+  # the OpenTelemetry exporter in TaskFlow.
+  jaeger:
+    image: jaegertracing/all-in-one:1.58
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"  # Jaeger UI at http://localhost:16686
+      - "4318:4318"    # OTLP HTTP receiver
+    restart: unless-stopped
+    networks:
+      - taskflow-network
+
+# ========================================
+# Named Volumes
+# ========================================
+# Named volumes persist data across container restarts.
+# Use `docker-compose down -v` to remove them.
+volumes:
+  postgres-data:
+    driver: local
+  arango-data:
+    driver: local
+  prometheus-data:
+    driver: local
+
+# ========================================
+# Network
+# ========================================
+# An isolated bridge network for all services.
+# Services can reach each other by container name (e.g., "postgres").
+networks:
+  taskflow-network:
+    driver: bridge
